@@ -173,10 +173,17 @@ function newEntries(prev, now) {
   return now.slice(-1);
 }
 
-/** Suit le journal et affiche quelques secondes l'événement marquant le plus récent. */
+const TOAST_MS = 3_000;
+const TOAST_QUEUE_MAX = 3;
+
+/**
+ * Suit le journal et affiche les événements marquants l'un après l'autre (3 s chacun).
+ * Quand les coups s'enchaînent vite (bots), les cartes font la queue au lieu de se remplacer ;
+ * au-delà de 3 en attente, les plus anciennes sont abandonnées pour ne pas prendre de retard.
+ */
 export class EventToaster {
-  constructor() { this.prev = null; this.timer = null; }
-  reset() { this.prev = null; }
+  constructor() { this.prev = null; this.timer = null; this.queue = []; this.showing = false; }
+  reset() { this.prev = null; this.queue = []; }
   update(log) {
     const prev = this.prev;
     this.prev = log;
@@ -184,16 +191,72 @@ export class EventToaster {
     const fresh = newEntries(prev, log).filter((e) => EVENT_STYLE[e.event]);
     if (fresh.length === 0) return;
     fresh.sort((a, b) => PRIORITY.indexOf(a.event) - PRIORITY.indexOf(b.event));
-    this.show(fresh[0]);
+    this.queue.push(fresh[0]);
+    if (this.queue.length > TOAST_QUEUE_MAX) this.queue.splice(0, this.queue.length - TOAST_QUEUE_MAX);
+    if (!this.showing) this.next();
   }
-  show(entry) {
-    const [icon, color, title] = EVENT_STYLE[entry.event];
+  next() {
     const box = document.getElementById('toasts');
+    const entry = this.queue.shift();
+    if (!entry) { this.showing = false; box.innerHTML = ''; return; }
+    this.showing = true;
+    const [icon, color, title] = EVENT_STYLE[entry.event];
     box.innerHTML = `<div class="toast" style="--c:${color}"><div class="badge" style="--c:${color}">${icon}</div>
       <div><h3>${title}</h3><div class="muted small">${logText(entry)}</div></div></div>`;
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => { box.innerHTML = ''; }, 2_600);
+    this.timer = setTimeout(() => this.next(), TOAST_MS);
   }
+}
+
+/* -------------------------- Tirage du Purple -------------------------- */
+
+export const REVEAL_MS = 3_000;
+const GUESS_TEXT = {
+  HIGHER: 'Plus grand', LOWER: 'Plus petit', EQUAL: 'Égal', INSIDE: 'Intérieur', OUTSIDE: 'Extérieur',
+};
+
+/** Annonce du Purple en toutes lettres : « Rouge », « Plus grand », « ♥ Cœur »… */
+export function guessText(g) {
+  if (!g) return '';
+  if (g.kind === 'color') return g.red ? 'Rouge' : 'Noir';
+  if (g.kind === 'suit') return `${SUIT_SYMBOL[g.suit]} ${SUIT_NAME[g.suit].replace(/^./, (c) => c.toUpperCase())}`;
+  return GUESS_TEXT[g.value] ?? '';
+}
+
+/**
+ * Montre en grand, pendant 3 s, chaque carte tirée au Purple : qui a annoncé quoi,
+ * la carte sortie et le verdict. Sans ça, un échec renvoie aussitôt à l'étape 1
+ * et on ne comprend pas pourquoi on a perdu.
+ */
+export class PurpleReveal {
+  constructor() { this.prev = null; this.queue = []; this.timer = null; this.showing = false; }
+  update(log) {
+    const prev = this.prev;
+    this.prev = log;
+    if (prev == null) return;
+    for (const e of newEntries(prev, log)) {
+      if (e.event === 'PURPLE_SUCCESS' || e.event === 'PURPLE_FAIL') this.queue.push(e);
+    }
+    if (!this.showing) this.next();
+  }
+  next() {
+    const box = document.getElementById('reveal');
+    const e = this.queue.shift();
+    if (!e) { this.showing = false; box.innerHTML = ''; return; }
+    this.showing = true;
+    const ok = e.event === 'PURPLE_SUCCESS';
+    const color = ok ? 'var(--green)' : 'var(--red)';
+    box.innerHTML = `<div class="overlay reveal"><div class="col center" style="gap:12px;align-items:center">
+      <div class="muted">${esc(e.player)} · étape ${e.value}/4</div>
+      <h2>Annonce : ${guessText(e.guess)}</h2>
+      ${card(e.card, { w: 150, style: 'margin:6px auto' })}
+      <div class="tag" style="--c:${color};font-size:22px;padding:6px 18px">${ok ? '✓ Réussi !' : '✕ Raté : 1 gorgée'}</div>
+      ${ok ? '' : '<div class="small muted">Retour à l\'étape 1</div>'}
+    </div></div>`;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.next(), REVEAL_MS);
+  }
+  clear() { clearTimeout(this.timer); this.queue = []; this.showing = false; const box = document.getElementById('reveal'); if (box) box.innerHTML = ''; }
 }
 
 /* ----------------------------- Fenêtres ----------------------------- */

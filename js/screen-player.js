@@ -7,7 +7,7 @@ import { JACK, QUEEN, KING, TARGET_SCORE, isJoker, purpleStep, FAULT_KINDS } fro
 import { bacStatus, loadProfile } from './store.js';
 import {
   esc, avatar, card, fan, tag, bacBadge, bacText, bacColor, sips, sipsWord, cardLong, SUIT_SYMBOL,
-  EventToaster, snack, stepper, ERROR_TEXT, REJECT_TEXT, REASON_TEXT, FAULT_TEXT,
+  EventToaster, PurpleReveal, snack, stepper, ERROR_TEXT, REJECT_TEXT, REASON_TEXT, FAULT_TEXT,
 } from './ui.js';
 
 /* ------------------- Purple (partagé avec le Master) ------------------- */
@@ -54,6 +54,7 @@ const BAC_ORDER = ['OK', 'OVER_LIMIT', 'OFFENCE', 'DANGER'];
 export function playerScreen(nav, code) {
   const profile = loadProfile();
   const toaster = new EventToaster();
+  const reveal = new PurpleReveal();
   const notices = []; // gorgées à afficher (« Tu bois »), une fenêtre à la fois
   let noticeCounter = 0;
   let selected = null; // id de la carte choisie
@@ -74,6 +75,7 @@ export function playerScreen(nav, code) {
     const v = c.view;
     if (v) {
       toaster.update(v.log);
+      reveal.update(v.log);
       // La carte choisie disparaît si elle n'est plus jouable.
       const myTurn = v.phase.type === 'turn' && v.currentPlayerId === v.me;
       if (!myTurn || !v.myHand.some((x) => x.id === selected)) selected = null;
@@ -371,6 +373,6 @@ export function playerScreen(nav, code) {
       if (key?.startsWith('bac-')) { bacAlert = null; return true; }
       return false; // distribution et acolyte : choix obligatoires
     },
-    destroy() { client.destroy(); },
+    destroy() { client.destroy(); reveal.clear(); },
   };
 }

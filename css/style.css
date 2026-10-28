@@ -205,6 +205,9 @@ input[type=range] { width: 100%; accent-color: var(--green); }
 
 /* --------------------------- Calques (modales) --------------------------- */
 .overlay { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgba(11, 11, 14, .93); animation: fade .2s ease; }
+.overlay.reveal { z-index: 38; background: rgba(11, 11, 14, .88); }
+.overlay.reveal .pcard { animation: flip .35s ease; }
+@keyframes flip { from { transform: rotateY(90deg) scale(.9); } to { transform: none; } }
 .modal-back { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .6); animation: fade .15s ease; }
 .modal { width: 100%; max-width: 460px; max-height: calc(100dvh - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 20px; animation: pop .18s ease; }
 .full-amber { position: fixed; inset: 0; z-index: 45; background: var(--amber); color: #231600; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px; gap: 10px; text-align: center; animation: fade .2s ease; }

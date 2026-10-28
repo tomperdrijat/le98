@@ -12,7 +12,10 @@ import { BotBrain } from './bot.js';
 import { PEER_PREFIX, HEARTBEAT_MS, TIMEOUT_MS, PROTOCOL_VERSION, peerOptions, peerErrorText, newTableCode } from './net.js';
 import { saveHost, clearHost, randomId } from './store.js';
 
-const BOT_DELAY_MS = 1_300;
+/** Rythme des bots : assez lent pour qu'on suive la partie et lise chaque carte d'événement. */
+const BOT_DELAY_MS = 2_500;
+/** Au Purple, on laisse d'abord la carte tirée affichée (3 s) avant l'annonce suivante. */
+const BOT_DELAY_PURPLE_MS = 3_500;
 /** Délai laissé à un humain qui doit encore piocher avant qu'un bot ne joue (sinon pénalité injuste). */
 const BOT_DELAY_HUMAN_DRAW_MS = 4_000;
 const BOT_PREFIX = 'bot-';
@@ -240,6 +243,7 @@ export class Hub {
     if (!s || isFrozen(s)) return; // pause ou arbitrage : les bots attendent aussi
     if (!s.seats.some((x) => x.isBot && this.brain.decide(s, x.id))) return;
     const humanMustDraw = s.seats.some((x) => !x.isBot && x.connected && x.pendingDraw);
+    const delay = humanMustDraw ? BOT_DELAY_HUMAN_DRAW_MS : s.phase.type === 'purple' ? BOT_DELAY_PURPLE_MS : BOT_DELAY_MS;
     this.botTimer = setTimeout(() => {
       this.botTimer = null;
       const cur = this.state;
@@ -251,7 +255,7 @@ export class Hub {
         if (!o.error) { this.handleEvents(o); this.publish(o.state); }
         return;
       }
-    }, humanMustDraw ? BOT_DELAY_HUMAN_DRAW_MS : BOT_DELAY_MS);
+    }, delay);
   }
 
   /* ========================= Commandes du Master ========================= */

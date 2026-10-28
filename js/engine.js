@@ -65,8 +65,15 @@ export function standard54() {
 
 /* ------------------------------ État ------------------------------ */
 
+/**
+ * Options par défaut : règles de base, toutes les variantes décochées.
+ *  - manualDraw false : la pioche est automatique ;
+ *  - announceScore false : pas de score à annoncer ;
+ *  - leavingTenCounts false : on ne boit qu'en DÉPASSANT une dizaine (88 → 92 : boit 9),
+ *    jamais en la quittant (90 → 93 : rien).
+ */
 export function defaultOptions() {
-  return { manualDraw: true, announceScore: true, generalRoundSips: 5, leavingTenCounts: true };
+  return { manualDraw: false, announceScore: false, generalRoundSips: 5, leavingTenCounts: false };
 }
 
 export function newGame(sessionUid, roomName, options = defaultOptions()) {
@@ -518,7 +525,7 @@ export class Engine {
     Object.assign(np, { deckCount: np.deck.length, lastCard: drawn, lastGuess: guess, lastSuccess: success, lastPlayerId: playerId });
 
     if (success) {
-      tx.log({ event: 'PURPLE_SUCCESS', player: name, value: step, card: drawn });
+      tx.log({ event: 'PURPLE_SUCCESS', player: name, value: step, card: drawn, guess });
       np.revealed.push(drawn);
       if (np.revealed.length >= 4) {
         tx.log({ event: 'PURPLE_SAVED', player: name });
@@ -535,7 +542,7 @@ export class Engine {
         np.activeId = remaining[0];
       }
     } else {
-      tx.log({ event: 'PURPLE_FAIL', player: name, value: step, card: drawn });
+      tx.log({ event: 'PURPLE_FAIL', player: name, value: step, card: drawn, guess });
       tx.drink(playerId, 1, 'PURPLE_FAIL');
       tx.seat(playerId).round.purpleFails += 1;
       // Duel : la main passe à l'autre joueur s'il n'est pas encore sauvé.

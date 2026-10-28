@@ -9,12 +9,13 @@ import { joinUrl } from './net.js';
 import { loadHost } from './store.js';
 import {
   esc, avatar, card, deck, scoreRing, tag, statusDot, bacBadge, logText, sips, cardLong,
-  EventToaster, modal, snack, stepper, toggle, ERROR_TEXT, FAULT_TEXT,
+  EventToaster, PurpleReveal, modal, snack, stepper, toggle, ERROR_TEXT, FAULT_TEXT,
 } from './ui.js';
 import { purpleBoard, purpleButtons } from './screen-player.js';
 
 export function hostScreen(nav, resume) {
   const toaster = new EventToaster();
+  const reveal = new PurpleReveal();
   let lastRound = null;
   let starterUntil = 0;
   let starterTimer = null;
@@ -23,7 +24,7 @@ export function hostScreen(nav, resume) {
   const hub = new Hub((h) => {
     if (h.lastError) { snack(ERROR_TEXT[h.lastError] ?? h.lastError); h.lastError = null; }
     const s = h.state;
-    if (s && s.phase.type !== 'lobby') toaster.update(s.log);
+    if (s && s.phase.type !== 'lobby') { toaster.update(s.log); reveal.update(s.log); }
     // Tirage d'amorce affiché 3 s au début de chaque manche (sauf manche déjà entamée à l'ouverture).
     if (s && s.roundNumber !== lastRound) {
       const sinceStart = s.log.slice(s.log.map((e) => e.event).lastIndexOf('ROUND_START') + 1);
@@ -289,7 +290,7 @@ export function hostScreen(nav, resume) {
       if (act.startsWith('opt:')) hub.updateOptions({ ...hub.state.options, [act.slice(4)]: el.checked });
     },
     onOutsideClick() { if (menuFor) closeMenu(); },
-    destroy() { clearTimeout(starterTimer); },
+    destroy() { clearTimeout(starterTimer); reveal.clear(); },
     /** Empêche la fermeture accidentelle de l'onglet du Master pendant une partie. */
     beforeUnload: () => hub.state && hub.state.seats.length > 0,
   };

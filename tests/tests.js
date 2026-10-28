@@ -31,7 +31,7 @@ const c = (r, s = 'S') => ({ id: nextId++, r, s: r === JOKER ? null : s });
 const NAMES = ['Alice', 'Bob', 'Clara', 'David'];
 
 /** État « en cours de tour » construit à la main pour des tests déterministes. */
-function state(score, hands, { current = 0, options = { ...defaultOptions(), manualDraw: false, announceScore: true }, pile } = {}) {
+function state(score, hands, { current = 0, options = { ...defaultOptions(), manualDraw: false, announceScore: true, leavingTenCounts: true }, pile } = {}) {
   const s = newGame('test', 'Test', options);
   s.seats = hands.map((h, i) => ({
     id: `p${i}`, name: NAMES[i], isBot: false, connected: true, hand: h, handLimit: 4, pendingDraw: false,
@@ -221,6 +221,42 @@ test('quitter une dizaine : option stricte', () => {
   const nine = c(9);
   const strict = { ...defaultOptions(), manualDraw: false, leavingTenCounts: false };
   eq(drinks(engine.apply(state(80, [[nine], [c(2)], [c(2)]], { options: strict }), 'p0', play(nine.id, { announced: 89 }))).length, 0);
+});
+
+test('options par défaut : toutes les variantes décochées', () => {
+  eq(defaultOptions(), { manualDraw: false, announceScore: false, generalRoundSips: 5, leavingTenCounts: false });
+});
+
+test('règle par défaut : 90 + 3 = 93 ne fait pas boire (aucune dizaine dépassée)', () => {
+  const three = c(3);
+  const o = engine.apply(state(90, [[three], [c(2)], [c(2)]], { options: defaultOptions() }), 'p0', play(three.id));
+  eq(o.state.score, 93); eq(drinks(o).length, 0);
+});
+
+test('règle par défaut : 88 + 4 = 92 dépasse 90, boit 9', () => {
+  const four = c(4);
+  const o = engine.apply(state(88, [[four], [c(2)], [c(2)]], { options: defaultOptions() }), 'p0', play(four.id));
+  eq(drinks(o).map((d) => [d.sips, d.reason]), [[9, 'CROSSED_TEN']]);
+});
+
+test('règle par défaut : 25 + 10 = 35 dépasse 30, boit 3 ; 40 + 10 = 50 distribue 5', () => {
+  eq(tensEffect(c(10), 25, 35, false), { crossedSips: 3, distributeSips: 0 });
+  eq(tensEffect(c(10), 40, 50, false), { crossedSips: 0, distributeSips: 5 });
+  eq(tensEffect(c(5), 90, 95, false), { crossedSips: 0, distributeSips: 0 });
+});
+
+test('pioche automatique par défaut : la main revient à 4 cartes', () => {
+  const two = c(2);
+  const o = engine.apply(state(10, [[two, c(4), c(4), c(4)], [c(2)], [c(2)]], { options: defaultOptions() }), 'p0', play(two.id));
+  eq(seatOf(o.state, 'p0').hand.length, 4); eq(seatOf(o.state, 'p0').pendingDraw, false);
+});
+
+test('Purple : la carte tirée et l\'annonce sont gardées dans le journal (affichage du tirage)', () => {
+  const deck = [{ id: 2, r: 10, s: 'C' }];
+  const s = purpleState(state(99, [[], [], []]), ['p0'], deck);
+  const o = engine.apply(s, 'p0', guess({ kind: 'color', red: true }));
+  const e = o.state.log.at(-1);
+  eq([e.event, e.card.id, e.guess], ['PURPLE_FAIL', 2, { kind: 'color', red: true }]);
 });
 
 test('tensEffect', () => {
